@@ -1,2 +1,2 @@
 # finplus-ai
-financial planning tool
+a financial planning tool
