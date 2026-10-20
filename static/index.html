@@ -1,0 +1,797 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FinPulse AI - Financial Planning & Advisor Intelligence Suite</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  
+  <!-- Custom Styles -->
+  <link rel="stylesheet" href="/static/style.css">
+  
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#eff6ff',
+              500: '#3b82f6',
+              600: '#2563eb',
+              700: '#1d4ed8',
+              900: '#1e3a8a',
+            }
+          }
+        }
+      }
+    }
+  </script>
+</head>
+<body class="bg-[#0b0f19] text-slate-100 flex flex-col min-h-screen">
+
+  <!-- Header -->
+  <header class="border-b border-slate-800/80 bg-[#0f172a]/90 backdrop-blur-md sticky top-0 z-50">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      
+      <!-- Brand Logo -->
+      <div class="flex items-center space-x-3">
+        <div class="h-10 w-10 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center shadow-lg shadow-blue-500/25">
+          <i data-lucide="trending-up" class="w-6 h-6 text-white"></i>
+        </div>
+        <div>
+          <div class="flex items-center space-x-2">
+            <span class="font-bold text-lg tracking-tight text-white">FinPulse</span>
+            <span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20">AI Advisory</span>
+          </div>
+          <p class="text-[11px] text-slate-400">Intelligent Financial Planning & Advisor Automation</p>
+        </div>
+      </div>
+
+      <!-- Navigation Tabs -->
+      <nav id="main-tabs" class="hidden md:flex items-center space-x-1 bg-slate-900/60 p-1 rounded-xl border border-slate-800">
+        <button onclick="switchTab('chat')" id="tab-btn-chat" class="nav-tab-btn active">
+          <i data-lucide="bot" class="w-4 h-4"></i>
+          <span>24/7 AI Advisor</span>
+        </button>
+        <button onclick="switchTab('budgeting')" id="tab-btn-budgeting" class="nav-tab-btn">
+          <i data-lucide="pie-chart" class="w-4 h-4"></i>
+          <span>Budget & Spending</span>
+        </button>
+        <button onclick="switchTab('forecasting')" id="tab-btn-forecasting" class="nav-tab-btn">
+          <i data-lucide="sparkles" class="w-4 h-4"></i>
+          <span>Monte Carlo Forecasting</span>
+        </button>
+        <button onclick="switchTab('debt')" id="tab-btn-debt" class="nav-tab-btn">
+          <i data-lucide="credit-card" class="w-4 h-4"></i>
+          <span>Debt Payoff Studio</span>
+        </button>
+        <button onclick="switchTab('report')" id="tab-btn-report" class="nav-tab-btn">
+          <i data-lucide="file-text" class="w-4 h-4"></i>
+          <span>Executive Report</span>
+        </button>
+      </nav>
+
+      <!-- Client Persona Selector -->
+      <div class="flex items-center space-x-3">
+        <div class="flex items-center space-x-2 bg-slate-900/80 px-3 py-1.5 rounded-lg border border-slate-800">
+          <i data-lucide="user-check" class="w-4 h-4 text-emerald-400"></i>
+          <span class="text-xs text-slate-400">Active Profile:</span>
+          <select id="client-selector" onchange="changeClient(this.value)" class="bg-transparent text-xs font-semibold text-white focus:outline-none cursor-pointer">
+            <option value="alex_chen" class="bg-slate-900 text-white">Alex Chen (28yo Tech)</option>
+            <option value="millers_family" class="bg-slate-900 text-white">The Millers (42yo Family)</option>
+            <option value="elena_rostova" class="bg-slate-900 text-white">Elena Rostova (59yo Pre-Retiree)</option>
+          </select>
+        </div>
+      </div>
+
+    </div>
+  </header>
+
+  <!-- Key Metrics Top Strip -->
+  <section class="border-b border-slate-800/60 bg-slate-950/40 py-2.5 px-4 sm:px-6 lg:px-8">
+    <div class="max-w-7xl mx-auto grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 text-xs">
+      <div class="flex flex-col">
+        <span class="text-slate-400 text-[11px]">Estimated Net Worth</span>
+        <span id="strip-net-worth" class="text-sm font-bold text-white">$85,000</span>
+      </div>
+      <div class="flex flex-col">
+        <span class="text-slate-400 text-[11px]">Monthly Net Cashflow</span>
+        <span id="strip-cashflow" class="text-sm font-bold text-emerald-400">+$1,600/mo</span>
+      </div>
+      <div class="flex flex-col">
+        <span class="text-slate-400 text-[11px]">Emergency Runway</span>
+        <span id="strip-emergency" class="text-sm font-bold text-blue-400">5.5 Months</span>
+      </div>
+      <div class="flex flex-col">
+        <span class="text-slate-400 text-[11px]">Total Consumer Debt</span>
+        <span id="strip-debt" class="text-sm font-bold text-rose-400">$23,900</span>
+      </div>
+      <div class="flex flex-col">
+        <span class="text-slate-400 text-[11px]">Risk Profile</span>
+        <span id="strip-risk" class="text-sm font-bold text-indigo-400">Growth</span>
+      </div>
+      <div class="flex flex-col">
+        <span class="text-slate-400 text-[11px]">Overall Health Score</span>
+        <div class="flex items-center space-x-1.5">
+          <span id="strip-score" class="text-sm font-bold text-amber-400">78 / 100</span>
+          <span id="strip-grade" class="px-1.5 py-0.2 rounded text-[10px] font-bold bg-amber-500/20 text-amber-300">Good</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Main Content Container -->
+  <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
+
+    <!-- TAB 1: 24/7 AI FINANCIAL ADVISOR CHATBOT -->
+    <div id="view-chat" class="tab-view block">
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        
+        <!-- Chat Area (2 cols) -->
+        <div class="lg:col-span-2 glass-card flex flex-col h-[650px] overflow-hidden">
+          
+          <!-- Chat Header -->
+          <div class="p-4 border-b border-slate-800/80 bg-slate-900/40 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+              <div class="relative">
+                <div class="w-9 h-9 rounded-full bg-blue-600/20 border border-blue-500/40 flex items-center justify-center">
+                  <i data-lucide="bot" class="w-5 h-5 text-blue-400"></i>
+                </div>
+                <span class="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-slate-900"></span>
+              </div>
+              <div>
+                <h3 class="text-sm font-semibold text-white flex items-center gap-2">
+                  <span>FinPulse AI Advisor</span>
+                  <span class="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">24/7 Active</span>
+                </h3>
+                <p class="text-xs text-slate-400">Context-aware algorithmic planning & scenario simulation</p>
+              </div>
+            </div>
+
+            <!-- CFP Hand-off Action -->
+            <button onclick="requestCFPModal()" class="text-xs px-2.5 py-1.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 flex items-center gap-1.5 transition">
+              <i data-lucide="shield-alert" class="w-3.5 h-3.5"></i>
+              <span>Human CFP Review</span>
+            </button>
+          </div>
+
+          <!-- Messages Stream -->
+          <div id="chat-messages" class="chat-messages">
+            <!-- Messages injected dynamically via app.js -->
+          </div>
+
+          <!-- Quick Suggestion Chips -->
+          <div class="px-4 py-2 border-t border-slate-800/60 bg-slate-950/40 overflow-x-auto flex items-center gap-2" id="quick-prompts-container">
+            <button onclick="sendQuickPrompt('How is my financial health looking?')" class="prompt-chip">
+              📊 How is my financial health?
+            </button>
+            <button onclick="sendQuickPrompt('Can I afford a $650,000 house?')" class="prompt-chip">
+              🏡 Can I afford a $650k house?
+            </button>
+            <button onclick="sendQuickPrompt('How can I retire early at 55?')" class="prompt-chip">
+              🏖️ How to retire early at 55?
+            </button>
+            <button onclick="sendQuickPrompt('Compare Debt Avalanche vs Snowball for me')" class="prompt-chip">
+              💳 Avalanche vs Snowball debt
+            </button>
+            <button onclick="sendQuickPrompt('Simulate a 20% stock market crash')" class="prompt-chip">
+              📉 Simulate 20% market crash
+            </button>
+          </div>
+
+          <!-- Input Bar -->
+          <div class="p-3 bg-slate-900/80 border-t border-slate-800">
+            <form onsubmit="handleChatSubmit(event)" class="flex items-center space-x-2">
+              <input type="text" id="chat-input" placeholder="Ask anything about your money, retirement, home buying, debt, or investments..." 
+                class="flex-1 bg-slate-950 text-white placeholder-slate-500 text-sm rounded-xl px-4 py-3 border border-slate-800 focus:outline-none focus:border-blue-500 transition">
+              <button type="submit" id="chat-send-btn" class="bg-blue-600 hover:bg-blue-500 text-white px-5 py-3 rounded-xl font-medium text-sm transition flex items-center gap-1.5 shadow-lg shadow-blue-600/30">
+                <span>Send</span>
+                <i data-lucide="send" class="w-4 h-4"></i>
+              </button>
+            </form>
+          </div>
+
+        </div>
+
+        <!-- Real-time Health Radar & Goals Sidebar (1 col) -->
+        <div class="space-y-6">
+          
+          <!-- Financial Health Radar -->
+          <div class="glass-card p-5">
+            <div class="flex items-center justify-between mb-4">
+              <h3 class="text-sm font-semibold text-white flex items-center gap-2">
+                <i data-lucide="shield-check" class="w-4 h-4 text-blue-400"></i>
+                <span>5-Pillar Health Score</span>
+              </h3>
+              <span id="sidebar-overall-score" class="text-xs font-bold text-amber-400 bg-amber-400/10 px-2 py-0.5 rounded-full border border-amber-400/20">78 / 100</span>
+            </div>
+            <div class="h-56 relative flex items-center justify-center">
+              <canvas id="healthRadarChart"></canvas>
+            </div>
+            <div class="grid grid-cols-2 gap-2 mt-4 text-[11px] text-slate-300">
+              <div class="p-2 rounded bg-slate-900/50 border border-slate-800">
+                <span class="text-slate-500 block">Emergency Buffer</span>
+                <span id="score-liquidity-txt" class="font-bold text-blue-400">92 / 100</span>
+              </div>
+              <div class="p-2 rounded bg-slate-900/50 border border-slate-800">
+                <span class="text-slate-500 block">Debt Health</span>
+                <span id="score-debt-txt" class="font-bold text-rose-400">65 / 100</span>
+              </div>
+              <div class="p-2 rounded bg-slate-900/50 border border-slate-800">
+                <span class="text-slate-500 block">Budget Discipline</span>
+                <span id="score-budget-txt" class="font-bold text-emerald-400">75 / 100</span>
+              </div>
+              <div class="p-2 rounded bg-slate-900/50 border border-slate-800">
+                <span class="text-slate-500 block">Retirement Success</span>
+                <span id="score-retirement-txt" class="font-bold text-purple-400">82 / 100</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Active Goals Milestone Card -->
+          <div class="glass-card p-5">
+            <h3 class="text-sm font-semibold text-white flex items-center gap-2 mb-3">
+              <i data-lucide="target" class="w-4 h-4 text-emerald-400"></i>
+              <span>Active Goals & Milestones</span>
+            </h3>
+            <div id="goals-list-container" class="space-y-3">
+              <!-- Dynamically rendered -->
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+    </div>
+
+    <!-- TAB 2: BUDGET & SPENDING PATTERNS (ADVISOR COPILOT) -->
+    <div id="view-budgeting" class="tab-view hidden">
+      <div class="space-y-6">
+        
+        <!-- Top Row: 50/30/20 Rule + Spending Categories -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          
+          <!-- 50/30/20 Rule Card -->
+          <div class="glass-card p-5 flex flex-col justify-between">
+            <div>
+              <div class="flex items-center justify-between mb-3">
+                <h3 class="text-sm font-semibold text-white flex items-center gap-2">
+                  <i data-lucide="pie-chart" class="w-4 h-4 text-blue-400"></i>
+                  <span>50 / 30 / 20 Budget Health</span>
+                </h3>
+                <span id="budget-badge" class="text-xs px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Optimized</span>
+              </div>
+              <p class="text-xs text-slate-400 mb-4">Measures allocation against Elizabeth Warren's golden standard.</p>
+              
+              <!-- 3 Progress Bars -->
+              <div class="space-y-4 text-xs">
+                <div>
+                  <div class="flex justify-between mb-1">
+                    <span class="text-slate-300 font-medium">Needs (Housing, Groceries, Utilities)</span>
+                    <span id="fifty-needs-val" class="font-bold text-white">48% / 50%</span>
+                  </div>
+                  <div class="w-full bg-slate-800 rounded-full h-2.5 overflow-hidden">
+                    <div id="fifty-needs-bar" class="bg-blue-500 h-2.5 rounded-full" style="width: 48%"></div>
+                  </div>
+                </div>
+
+                <div>
+                  <div class="flex justify-between mb-1">
+                    <span class="text-slate-300 font-medium">Wants (Dining, Entertainment, Travel)</span>
+                    <span id="fifty-wants-val" class="font-bold text-white">31% / 30%</span>
+                  </div>
+                  <div class="w-full bg-slate-800 rounded-full h-2.5 overflow-hidden">
+                    <div id="fifty-wants-bar" class="bg-amber-500 h-2.5 rounded-full" style="width: 31%"></div>
+                  </div>
+                </div>
+
+                <div>
+                  <div class="flex justify-between mb-1">
+                    <span class="text-slate-300 font-medium">Savings & Investments</span>
+                    <span id="fifty-savings-val" class="font-bold text-white">21% / 20%</span>
+                  </div>
+                  <div class="w-full bg-slate-800 rounded-full h-2.5 overflow-hidden">
+                    <div id="fifty-savings-bar" class="bg-emerald-500 h-2.5 rounded-full" style="width: 21%"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div id="budget-insight-box" class="mt-4 p-3 rounded-lg bg-slate-900/60 border border-slate-800 text-xs text-slate-300">
+              <!-- Dynamically populated -->
+            </div>
+          </div>
+
+          <!-- Spending Category Donut -->
+          <div class="glass-card p-5">
+            <h3 class="text-sm font-semibold text-white flex items-center gap-2 mb-2">
+              <i data-lucide="donut" class="w-4 h-4 text-indigo-400"></i>
+              <span>Monthly Expense Distribution</span>
+            </h3>
+            <div class="h-56 relative flex items-center justify-center">
+              <canvas id="spendingDonutChart"></canvas>
+            </div>
+          </div>
+
+          <!-- Recurring Subscription Hunter -->
+          <div class="glass-card p-5 flex flex-col justify-between">
+            <div>
+              <div class="flex items-center justify-between mb-2">
+                <h3 class="text-sm font-semibold text-white flex items-center gap-2">
+                  <i data-lucide="repeat" class="w-4 h-4 text-rose-400"></i>
+                  <span>Subscription Hunter</span>
+                </h3>
+                <span id="subs-count-badge" class="text-xs px-2 py-0.5 rounded-full bg-rose-500/10 text-rose-400 border border-rose-500/20">6 Active</span>
+              </div>
+              <p class="text-xs text-slate-400 mb-3">AI detected recurring charges and auto-renewals.</p>
+              
+              <div id="subscriptions-container" class="space-y-2 max-h-48 overflow-y-auto pr-1">
+                <!-- Subscriptions injected dynamically -->
+              </div>
+            </div>
+
+            <div class="mt-4 p-3 rounded-lg bg-rose-500/10 border border-rose-500/20 text-xs text-rose-300 flex justify-between items-center">
+              <div>
+                <span class="block text-[11px] text-rose-400">Total Subscription Drag</span>
+                <span id="subs-annual-cost" class="font-bold text-sm">$4,250 / year</span>
+              </div>
+              <button onclick="simulateCancelSubs()" class="px-2.5 py-1.5 rounded bg-rose-600 hover:bg-rose-500 text-white font-medium text-[11px] transition">
+                Simulate Cut
+              </button>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Categorized Transactions Log Table -->
+        <div class="glass-card p-5">
+          <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+            <div>
+              <h3 class="text-sm font-semibold text-white flex items-center gap-2">
+                <i data-lucide="receipt" class="w-4 h-4 text-blue-400"></i>
+                <span>Automated Transaction Categorization</span>
+              </h3>
+              <p class="text-xs text-slate-400">Heuristic NLP matching with classification tags</p>
+            </div>
+            
+            <input type="text" id="tx-search-input" onkeyup="filterTransactions(this.value)" placeholder="Search merchant, category..." 
+              class="bg-slate-900 text-xs px-3 py-2 rounded-lg border border-slate-800 text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 w-full sm:w-64">
+          </div>
+
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs">
+              <thead class="text-slate-400 bg-slate-900/60 border-b border-slate-800">
+                <tr>
+                  <th class="py-2.5 px-3">Date</th>
+                  <th class="py-2.5 px-3">Description</th>
+                  <th class="py-2.5 px-3">Category</th>
+                  <th class="py-2.5 px-3">Type</th>
+                  <th class="py-2.5 px-3 text-right">Amount</th>
+                </tr>
+              </thead>
+              <tbody id="transactions-table-body" class="divide-y divide-slate-800/60">
+                <!-- Injected via JavaScript -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- TAB 3: MONTE CARLO WEALTH FORECASTING -->
+    <div id="view-forecasting" class="tab-view hidden">
+      <div class="space-y-6">
+        
+        <!-- Controls & Success Gauge -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          
+          <!-- Parameters Control Form -->
+          <div class="glass-card p-5 lg:col-span-2">
+            <div class="flex items-center justify-between mb-4">
+              <h3 class="text-sm font-semibold text-white flex items-center gap-2">
+                <i data-lucide="sliders" class="w-4 h-4 text-blue-400"></i>
+                <span>Monte Carlo Simulation Parameters (1,000 Iterations)</span>
+              </h3>
+              <button onclick="runCustomMonteCarlo()" class="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold flex items-center gap-1.5 transition">
+                <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
+                <span>Re-simulate</span>
+              </button>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 text-xs">
+              <div>
+                <label class="text-slate-400 block mb-1">Current Invested Net Worth ($)</label>
+                <input type="number" id="mc-param-current" value="85000" class="w-full bg-slate-900 border border-slate-800 rounded px-3 py-2 text-white focus:outline-none focus:border-blue-500">
+              </div>
+              <div>
+                <label class="text-slate-400 block mb-1">Monthly Contribution ($)</label>
+                <input type="number" id="mc-param-contribution" value="1600" class="w-full bg-slate-900 border border-slate-800 rounded px-3 py-2 text-white focus:outline-none focus:border-blue-500">
+              </div>
+              <div>
+                <label class="text-slate-400 block mb-1">Years to Retirement</label>
+                <input type="number" id="mc-param-years" value="27" class="w-full bg-slate-900 border border-slate-800 rounded px-3 py-2 text-white focus:outline-none focus:border-blue-500">
+              </div>
+              <div>
+                <label class="text-slate-400 block mb-1">Target Annual Spend in Retirement ($)</label>
+                <input type="number" id="mc-param-spend" value="70000" class="w-full bg-slate-900 border border-slate-800 rounded px-3 py-2 text-white focus:outline-none focus:border-blue-500">
+              </div>
+              <div>
+                <label class="text-slate-400 block mb-1">Expected Nom. Return (%)</label>
+                <input type="number" step="0.1" id="mc-param-return" value="7.5" class="w-full bg-slate-900 border border-slate-800 rounded px-3 py-2 text-white focus:outline-none focus:border-blue-500">
+              </div>
+              <div>
+                <label class="text-slate-400 block mb-1">Annual Volatility / StdDev (%)</label>
+                <input type="number" step="0.1" id="mc-param-volatility" value="15.0" class="w-full bg-slate-900 border border-slate-800 rounded px-3 py-2 text-white focus:outline-none focus:border-blue-500">
+              </div>
+            </div>
+          </div>
+
+          <!-- Probability Dial Card -->
+          <div class="glass-card p-5 flex flex-col justify-between items-center text-center">
+            <div>
+              <span class="text-xs text-slate-400 uppercase tracking-wider font-semibold">Plan Durability</span>
+              <h4 class="text-base font-semibold text-white mt-1">Probability of Success</h4>
+            </div>
+
+            <div class="my-4 relative">
+              <div id="mc-success-circle" class="w-28 h-28 rounded-full border-4 border-emerald-500/40 bg-emerald-500/10 flex flex-col items-center justify-center">
+                <span id="mc-success-pct" class="text-2xl font-black text-emerald-400">89.4%</span>
+                <span class="text-[10px] text-slate-400">1,000 Paths</span>
+              </div>
+            </div>
+
+            <p id="mc-assessment-text" class="text-xs text-slate-300">
+              High Confidence Plan: Extremely resilient against historical down-market sequences.
+            </p>
+          </div>
+
+        </div>
+
+        <!-- Monte Carlo Percentile Trajectory Chart -->
+        <div class="glass-card p-5">
+          <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
+            <div>
+              <h3 class="text-sm font-semibold text-white flex items-center gap-2">
+                <i data-lucide="line-chart" class="w-4 h-4 text-emerald-400"></i>
+                <span>Stochastic Wealth Trajectory Bands (Accumulation & Decumulation)</span>
+              </h3>
+              <p class="text-xs text-slate-400">Visualizes 90th percentile (Bullish), 50th percentile (Median), and 10th percentile (Bearish sequence risk)</p>
+            </div>
+            
+            <div class="flex items-center gap-4 text-xs">
+              <span class="flex items-center gap-1.5"><span class="w-3 h-0.5 bg-emerald-400 inline-block"></span> 90th Pct (Bull)</span>
+              <span class="flex items-center gap-1.5"><span class="w-3 h-0.5 bg-blue-400 inline-block"></span> 50th Pct (Median)</span>
+              <span class="flex items-center gap-1.5"><span class="w-3 h-0.5 bg-rose-400 inline-block"></span> 10th Pct (Bear)</span>
+            </div>
+          </div>
+
+          <div class="h-80 relative">
+            <canvas id="monteCarloChart"></canvas>
+          </div>
+        </div>
+
+        <!-- FIRE Benchmarks Grid -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div class="glass-card p-4">
+            <span class="text-[11px] text-slate-400 block">Full FIRE Target (4% Rule)</span>
+            <span id="fire-target-val" class="text-lg font-bold text-white">$1,750,000</span>
+            <span class="text-[11px] text-slate-500 block mt-1">25x Annual Living Expenses</span>
+          </div>
+
+          <div class="glass-card p-4">
+            <span class="text-[11px] text-slate-400 block">Coast FIRE Threshold</span>
+            <span id="coast-fire-val" class="text-lg font-bold text-emerald-400">$215,000</span>
+            <span id="coast-fire-status" class="text-[11px] text-emerald-400/80 block mt-1">Current assets compounding</span>
+          </div>
+
+          <div class="glass-card p-4">
+            <span class="text-[11px] text-slate-400 block">Lean FIRE Target (75%)</span>
+            <span id="lean-fire-val" class="text-lg font-bold text-blue-400">$1,312,500</span>
+            <span class="text-[11px] text-slate-500 block mt-1">Basic baseline expenses</span>
+          </div>
+
+          <div class="glass-card p-4">
+            <span class="text-[11px] text-slate-400 block">Median At Retirement</span>
+            <span id="median-retirement-val" class="text-lg font-bold text-purple-400">$2,410,000</span>
+            <span class="text-[11px] text-slate-500 block mt-1">Expected 50th percentile nest egg</span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- TAB 4: DEBT PAYOFF STUDIO -->
+    <div id="view-debt" class="tab-view hidden">
+      <div class="space-y-6">
+        
+        <!-- Header & Extra Payment Slider -->
+        <div class="glass-card p-5">
+          <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div>
+              <h3 class="text-sm font-semibold text-white flex items-center gap-2">
+                <i data-lucide="zap" class="w-4 h-4 text-amber-400"></i>
+                <span>Debt Freedom Accelerator: Avalanche vs Snowball</span>
+              </h3>
+              <p class="text-xs text-slate-400">See how extra principal payments eliminate consumer debt years earlier</p>
+            </div>
+
+            <!-- Extra Monthly Payment Control -->
+            <div class="flex items-center space-x-3 bg-slate-900/80 px-4 py-2 rounded-xl border border-slate-800">
+              <span class="text-xs text-slate-400">Extra Monthly Payment:</span>
+              <input type="range" id="debt-extra-slider" min="0" max="1500" step="50" value="300" oninput="updateDebtSimulation(this.value)" class="w-32 cursor-pointer accent-blue-500">
+              <span id="debt-extra-label" class="text-sm font-bold text-blue-400 min-w-[70px] text-right">+$300/mo</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Strategy Contrast Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+          
+          <!-- Avalanche (Optimal) -->
+          <div class="glass-card p-5 border-l-4 border-l-emerald-500 relative overflow-hidden">
+            <div class="flex justify-between items-start mb-3">
+              <div>
+                <span class="text-xs font-semibold px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Recommended Math</span>
+                <h4 class="text-base font-bold text-white mt-1">Debt Avalanche</h4>
+                <p class="text-[11px] text-slate-400">Target highest APR debt first</p>
+              </div>
+              <i data-lucide="trending-down" class="w-5 h-5 text-emerald-400"></i>
+            </div>
+
+            <div class="space-y-2.5 my-4 text-xs">
+              <div class="flex justify-between">
+                <span class="text-slate-400">Debt-Free In:</span>
+                <span id="av-time" class="font-bold text-white">2.2 Years (26 mos)</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-slate-400">Total Interest Paid:</span>
+                <span id="av-interest" class="font-bold text-emerald-400">$1,840</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-slate-400">Interest Saved:</span>
+                <span id="av-saved" class="font-bold text-emerald-300">+$3,450 saved</span>
+              </div>
+            </div>
+
+            <p class="text-[11px] text-slate-400 border-t border-slate-800 pt-3">
+              Mathematically optimal. Directs maximum dollars to high-interest balances.
+            </p>
+          </div>
+
+          <!-- Snowball (Psychological) -->
+          <div class="glass-card p-5 border-l-4 border-l-blue-500">
+            <div class="flex justify-between items-start mb-3">
+              <div>
+                <span class="text-xs font-semibold px-2 py-0.5 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20">Psychological Wins</span>
+                <h4 class="text-base font-bold text-white mt-1">Debt Snowball</h4>
+                <p class="text-[11px] text-slate-400">Target smallest balance first</p>
+              </div>
+              <i data-lucide="award" class="w-5 h-5 text-blue-400"></i>
+            </div>
+
+            <div class="space-y-2.5 my-4 text-xs">
+              <div class="flex justify-between">
+                <span class="text-slate-400">Debt-Free In:</span>
+                <span id="sb-time" class="font-bold text-white">2.4 Years (29 mos)</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-slate-400">Total Interest Paid:</span>
+                <span id="sb-interest" class="font-bold text-blue-400">$2,190</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-slate-400">Interest Saved:</span>
+                <span id="sb-saved" class="font-bold text-blue-300">+$3,100 saved</span>
+              </div>
+            </div>
+
+            <p class="text-[11px] text-slate-400 border-t border-slate-800 pt-3">
+              Knocks out individual debt accounts fastest to build psychological momentum.
+            </p>
+          </div>
+
+          <!-- Minimum Payments Only -->
+          <div class="glass-card p-5 border-l-4 border-l-rose-500">
+            <div class="flex justify-between items-start mb-3">
+              <div>
+                <span class="text-xs font-semibold px-2 py-0.5 rounded bg-rose-500/10 text-rose-400 border border-rose-500/20">Costly Inaction</span>
+                <h4 class="text-base font-bold text-white mt-1">Minimums Only</h4>
+                <p class="text-[11px] text-slate-400">Pay only standard minimums</p>
+              </div>
+              <i data-lucide="alert-triangle" class="w-5 h-5 text-rose-400"></i>
+            </div>
+
+            <div class="space-y-2.5 my-4 text-xs">
+              <div class="flex justify-between">
+                <span class="text-slate-400">Debt-Free In:</span>
+                <span id="min-time" class="font-bold text-rose-400">7.8 Years (94 mos)</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-slate-400">Total Interest Paid:</span>
+                <span id="min-interest" class="font-bold text-rose-400">$5,290</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-slate-400">Extra Money Lost:</span>
+                <span id="min-lost" class="font-bold text-rose-300">-$3,450 to interest</span>
+              </div>
+            </div>
+
+            <p class="text-[11px] text-slate-400 border-t border-slate-800 pt-3">
+              Compounding interest drags on finances for years. Avoid minimum-only trap.
+            </p>
+          </div>
+
+        </div>
+
+        <!-- Debts Table -->
+        <div class="glass-card p-5">
+          <h3 class="text-sm font-semibold text-white flex items-center gap-2 mb-3">
+            <i data-lucide="list" class="w-4 h-4 text-blue-400"></i>
+            <span>Current Outstanding Debt Portfolio</span>
+          </h3>
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs">
+              <thead class="text-slate-400 bg-slate-900/60 border-b border-slate-800">
+                <tr>
+                  <th class="py-2.5 px-3">Debt Name</th>
+                  <th class="py-2.5 px-3 text-right">Balance</th>
+                  <th class="py-2.5 px-3 text-right">Interest Rate (APR)</th>
+                  <th class="py-2.5 px-3 text-right">Minimum Payment</th>
+                  <th class="py-2.5 px-3 text-center">Avalanche Priority</th>
+                </tr>
+              </thead>
+              <tbody id="debts-table-body" class="divide-y divide-slate-800/60">
+                <!-- Dynamically loaded -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- TAB 5: 1-CLICK EXECUTIVE CLIENT REPORT -->
+    <div id="view-report" class="tab-view hidden">
+      <div class="space-y-6">
+        
+        <!-- Action Header -->
+        <div class="glass-card p-5 flex items-center justify-between no-print">
+          <div>
+            <h3 class="text-sm font-semibold text-white flex items-center gap-2">
+              <i data-lucide="printer" class="w-4 h-4 text-blue-400"></i>
+              <span>Audit-Ready Executive Financial Review</span>
+            </h3>
+            <p class="text-xs text-slate-400">Complete automated client report ready for advisor delivery or PDF export</p>
+          </div>
+          <button onclick="window.print()" class="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-medium text-xs flex items-center gap-2 shadow-lg shadow-blue-500/20 transition">
+            <i data-lucide="file-down" class="w-4 h-4"></i>
+            <span>Print / Save as PDF</span>
+          </button>
+        </div>
+
+        <!-- The Printable Document Container -->
+        <div id="printable-report" class="glass-card p-8 bg-slate-950/80 border border-slate-800 space-y-8">
+          
+          <!-- Report Header -->
+          <div class="border-b border-slate-800 pb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+              <span class="text-xs uppercase tracking-widest text-blue-400 font-bold">Confidential Financial Health Report</span>
+              <h1 id="rep-client-name" class="text-2xl font-black text-white mt-1">Alex Chen</h1>
+              <p id="rep-client-meta" class="text-xs text-slate-400">Age: 28 | Occupation: Software Engineer | Risk Profile: Growth</p>
+            </div>
+            <div class="text-right">
+              <span class="text-xs text-slate-400 block">Generated by FinPulse AI</span>
+              <span class="text-sm font-bold text-white">October 20, 2026</span>
+              <span class="text-[11px] text-emerald-400 block">Status: Verified & Validated</span>
+            </div>
+          </div>
+
+          <!-- Scorecard Grid -->
+          <div>
+            <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">1. Executive Health Scorecard</h3>
+            <div class="grid grid-cols-2 sm:grid-cols-5 gap-3">
+              <div class="p-3 rounded-xl bg-slate-900 border border-slate-800">
+                <span class="text-[11px] text-slate-400 block">Overall Score</span>
+                <span id="rep-score-overall" class="text-xl font-black text-amber-400">78 / 100</span>
+              </div>
+              <div class="p-3 rounded-xl bg-slate-900 border border-slate-800">
+                <span class="text-[11px] text-slate-400 block">Liquidity</span>
+                <span id="rep-score-liquidity" class="text-xl font-black text-blue-400">92 / 100</span>
+              </div>
+              <div class="p-3 rounded-xl bg-slate-900 border border-slate-800">
+                <span class="text-[11px] text-slate-400 block">Debt Health</span>
+                <span id="rep-score-debt" class="text-xl font-black text-rose-400">65 / 100</span>
+              </div>
+              <div class="p-3 rounded-xl bg-slate-900 border border-slate-800">
+                <span class="text-[11px] text-slate-400 block">Budget Adherence</span>
+                <span id="rep-score-budget" class="text-xl font-black text-emerald-400">75 / 100</span>
+              </div>
+              <div class="p-3 rounded-xl bg-slate-900 border border-slate-800">
+                <span class="text-[11px] text-slate-400 block">Retirement Success</span>
+                <span id="rep-score-retirement" class="text-xl font-black text-purple-400">82%</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Balance Sheet Summary -->
+          <div>
+            <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">2. Net Worth & Balance Sheet Statement</h3>
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
+              <div class="p-4 rounded-xl bg-slate-900/60 border border-slate-800">
+                <span class="text-slate-400">Liquid Cash & Emergency Fund</span>
+                <span id="rep-asset-cash" class="block text-base font-bold text-white mt-1">$22,000</span>
+              </div>
+              <div class="p-4 rounded-xl bg-slate-900/60 border border-slate-800">
+                <span class="text-slate-400">Investments & Retirement Accounts</span>
+                <span id="rep-asset-inv" class="block text-base font-bold text-white mt-1">$78,500</span>
+              </div>
+              <div class="p-4 rounded-xl bg-slate-900/60 border border-slate-800">
+                <span class="text-slate-400">Total Consumer Debts</span>
+                <span id="rep-debt-total" class="block text-base font-bold text-rose-400 mt-1">$23,900</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Automated Action Plan -->
+          <div>
+            <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">3. Algorithmic Recommendations & Action Steps</h3>
+            <div id="rep-actions-container" class="space-y-3">
+              <!-- Dynamically rendered -->
+            </div>
+          </div>
+
+          <!-- Sign-off Section -->
+          <div class="border-t border-slate-800 pt-6 flex flex-col sm:flex-row sm:items-center sm:justify-between text-xs text-slate-500">
+            <div>
+              <span>Advisor: FinPulse Autonomous Wealth Engine</span><br>
+              <span>Methodology: CFP Board Financial Planning Practice Standards</span>
+            </div>
+            <div class="mt-4 sm:mt-0 text-right">
+              <span class="border-b border-slate-700 pb-1 inline-block w-48">Client Signature / Ack</span>
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+    </div>
+
+  </main>
+
+  <!-- CFP Escalation Modal -->
+  <div id="cfp-modal" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="glass-card max-w-md w-full p-6 bg-slate-900 border border-slate-700 shadow-2xl fade-in">
+      <div class="flex items-center justify-between mb-4">
+        <div class="flex items-center space-x-2 text-amber-400">
+          <i data-lucide="shield-alert" class="w-5 h-5"></i>
+          <h3 class="text-base font-bold text-white">Human CFP Review Handoff</h3>
+        </div>
+        <button onclick="closeCFPModal()" class="text-slate-400 hover:text-white">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+      <p class="text-xs text-slate-300 mb-4">
+        FinPulse AI connects seamlessly with licensed Certified Financial Planners (CFPs) when legal wills, complex trust structures, or specialized business tax strategies are requested.
+      </p>
+      <div class="p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg text-xs text-amber-300 mb-4">
+        <span class="font-bold block mb-1">Human-in-the-Loop Safeguard:</span>
+        Your query history and portfolio metrics will be packaged into a summary dossier for the designated fiduciary advisor.
+      </div>
+      <div class="flex justify-end gap-2">
+        <button onclick="closeCFPModal()" class="px-4 py-2 rounded-lg bg-slate-800 text-slate-300 text-xs hover:bg-slate-700">Cancel</button>
+        <button onclick="submitCFPEscalation()" class="px-4 py-2 rounded-lg bg-amber-600 hover:bg-amber-500 text-white font-semibold text-xs">Confirm Advisor Handoff</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Application Logic -->
+  <script src="/static/app.js"></script>
+</body>
+</html>
