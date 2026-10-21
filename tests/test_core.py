@@ -3,7 +3,7 @@ Unit and Integration Tests for FinPulse AI Core
 """
 
 import unittest
-from core.budgeting import analyze_transactions, categorize_transaction
+from core.budgeting import analyze_transactions, categorize_transaction, build_tailored_budget_plan
 from core.forecasting import run_monte_carlo_simulation, calculate_fire_metrics
 from core.debt_planner import compare_debt_strategies, calculate_debt_payoff
 from core.risk_profiler import get_risk_profile
@@ -96,6 +96,51 @@ class TestFinPulseCore(unittest.TestCase):
         # Test 5: CFP Flagging
         res5 = answer_financial_query("How do I set up an irrevocable trust fund for estate tax?", client)
         self.assertTrue(res5["needs_human_cfp"])
+
+    def test_tailored_budget_high_fixed_costs(self):
+        # 67% scenario: 20,000 out of 30,000
+        plan = build_tailored_budget_plan(30000.0, 20000.0)
+        self.assertFalse(plan["fits_standard_50_30_20"])
+        self.assertEqual(plan["fixed_pct"], 66.7)
+        self.assertEqual(plan["remaining_amount"], 10000.0)
+        self.assertIn("50/30/20 rule will not fit", plan["rule_acknowledgment"])
+        
+        # Tailored allocation for remaining $10,000
+        alloc = plan["tailored_allocation"]
+        self.assertEqual(alloc["savings_debt"]["amount"], 6000.0)
+        self.assertEqual(alloc["discretionary_wants"]["amount"], 4000.0)
+        self.assertEqual(plan["emergency_3mo_target"], 60000.0)
+        self.assertEqual(plan["months_to_emergency_fund"], 10.0)
+        self.assertEqual(len(plan["action_steps"]), 3)
+
+    def test_advisor_behavior_guidelines(self):
+        client = get_client_profile("alex_chen")
+        query = "My fixed costs take up 67% of income ($20,000 out of $30,000). What should I do?"
+        res = answer_financial_query(query, client)
+        resp_text = res["response"]
+
+        # Rule 1 & 4: Concrete numbers, simple math, acknowledge 50/30/20 mismatch & tailored remaining plan
+        self.assertIn("$20,000", resp_text)
+        self.assertIn("$30,000", resp_text)
+        self.assertIn("50/30/20", resp_text)
+        self.assertIn("won't fit", resp_text)
+        self.assertIn("$10,000", resp_text)
+        self.assertIn("$6,000", resp_text)
+        self.assertIn("$4,000", resp_text)
+
+        # Rule 2: Do NOT repeat user question back word-for-word
+        self.assertNotIn(f"Thank you for your question: *'{query}'*", resp_text)
+        self.assertNotIn("What should I do?", resp_text)
+
+        # Rule 3: Do NOT recite generic capability list
+        self.assertNotIn("As your **AI Financial Advisor**, I can assist you with:", resp_text)
+
+        # Rule 5: End with 1 concise, relevant follow-up question
+        self.assertTrue(resp_text.strip().endswith("?"))
+
+        # Capability check: only recite when explicitly asked
+        cap_res = answer_financial_query("What can you do?", client)
+        self.assertIn("capabilities", cap_res["response"].lower())
 
 if __name__ == "__main__":
     unittest.main()

@@ -19,6 +19,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     lucide.createIcons();
   }
   await loadClientData(currentClientId);
+  runCustomPlannerCalculation();
 });
 
 // Tab Switching
@@ -809,4 +810,176 @@ function closeCFPModal() {
 function submitCFPEscalation() {
   closeCFPModal();
   appendMessage("bot", "✅ **CFP Dossier Generated**: Your current portfolio metrics, Monte Carlo simulations, and conversation history have been transmitted to our partner Fiduciary Advisory Desk. A certified human planner will contact you within 24 hours.");
+}
+
+// -------------------------------------------------------------
+// ADAPTIVE BUDGET PLANNER & REALISTIC CONSTRAINTS SIMULATOR
+// -------------------------------------------------------------
+function setCustomPlannerPreset(income, fixed) {
+  const incEl = document.getElementById("custom-calc-income");
+  const fixEl = document.getElementById("custom-calc-fixed");
+  if (incEl && fixEl) {
+    incEl.value = income;
+    fixEl.value = fixed;
+    runCustomPlannerCalculation();
+  }
+}
+
+async function runCustomPlannerCalculation() {
+  const incEl = document.getElementById("custom-calc-income");
+  const fixEl = document.getElementById("custom-calc-fixed");
+  const resultBox = document.getElementById("custom-planner-result-box");
+  const badgeEl = document.getElementById("custom-fixed-pct-badge");
+  const barEl = document.getElementById("custom-fixed-pct-bar");
+
+  if (!incEl || !fixEl || !resultBox) return;
+
+  const income = parseFloat(incEl.value) || 0;
+  const fixed = parseFloat(fixEl.value) || 0;
+
+  if (income <= 0) {
+    resultBox.innerHTML = `<div class="p-3 rounded-lg bg-rose-500/10 text-rose-300 text-xs">Please enter a valid monthly take-home income greater than zero.</div>`;
+    return;
+  }
+
+  const fixedPct = Math.min(100, Math.round((fixed / income) * 1000) / 10);
+  if (badgeEl) {
+    badgeEl.textContent = `${fixedPct}% of income`;
+    badgeEl.className = fixedPct > 50 
+      ? "text-xs font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30"
+      : "text-xs font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30";
+  }
+  if (barEl) {
+    barEl.style.width = `${Math.min(100, fixedPct)}%`;
+    barEl.className = fixedPct > 50 ? "bg-amber-500 h-2.5 rounded-full transition-all duration-300" : "bg-emerald-500 h-2.5 rounded-full transition-all duration-300";
+  }
+
+  try {
+    const res = await fetch("/api/tailored-budget", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ monthly_income: income, fixed_costs: fixed })
+    });
+    if (!res.ok) throw new Error("Calculation failed");
+    const plan = await res.json();
+    renderCustomPlannerResult(plan);
+  } catch (err) {
+    // Client-side fallback calculation
+    const remaining = Math.max(0, income - fixed);
+    const savings = Math.round(remaining * 0.6);
+    const wants = Math.max(0, remaining - savings);
+    renderCustomPlannerResult({
+      monthly_income: income,
+      fixed_costs: fixed,
+      fixed_pct: fixedPct,
+      remaining_amount: remaining,
+      remaining_pct: Math.round((100 - fixedPct) * 10) / 10,
+      fits_standard_50_30_20: fixedPct <= 50,
+      rule_acknowledgment: fixedPct > 50 
+        ? `Fixed costs take up ${fixedPct}% ($${fixed.toLocaleString()} out of $${income.toLocaleString()}). The standard 50/30/20 rule will not fit perfectly because essentials exceed the 50% guideline ($${(income*0.5).toLocaleString()}). Tailored plan active for the remaining $${remaining.toLocaleString()}.`
+        : `Fixed costs take up ${fixedPct}%, which fits within the standard 50% limit.`,
+      tailored_allocation: {
+        fixed_needs: { amount: fixed, percent: fixedPct },
+        savings_debt: { amount: savings, percent: Math.round((savings/income)*1000)/10, pct_of_remaining: 60.0 },
+        discretionary_wants: { amount: wants, percent: Math.round((wants/income)*1000)/10, pct_of_remaining: 40.0 }
+      },
+      action_steps: [
+        `Automate $${savings.toLocaleString()}/month into high-yield savings or debt reduction on payday.`,
+        `Cap discretionary spending to $${wants.toLocaleString()}/month (~$${Math.round(wants/4.33).toLocaleString()}/week) in a separate account.`,
+        `Build a 3-month fixed cost reserve ($${(fixed*3).toLocaleString()}) achieved in ${savings > 0 ? Math.round((fixed*3)/savings*10)/10 : 0} months.`
+      ],
+      emergency_3mo_target: fixed * 3,
+      months_to_emergency_fund: savings > 0 ? Math.round((fixed*3)/savings*10)/10 : 0
+    });
+  }
+}
+
+function renderCustomPlannerResult(plan) {
+  const resultBox = document.getElementById("custom-planner-result-box");
+  if (!resultBox) return;
+
+  const alloc = plan.tailored_allocation;
+  const isHighFixed = !plan.fits_standard_50_30_20;
+
+  resultBox.innerHTML = `
+    <!-- Alert Banner -->
+    <div class="p-3.5 rounded-xl ${isHighFixed ? 'bg-amber-500/10 border border-amber-500/25 text-amber-300' : 'bg-emerald-500/10 border border-emerald-500/25 text-emerald-300'} text-xs flex items-start gap-2.5">
+      <i data-lucide="${isHighFixed ? 'alert-triangle' : 'check-circle-2'}" class="w-4 h-4 mt-0.5 shrink-0 ${isHighFixed ? 'text-amber-400' : 'text-emerald-400'}"></i>
+      <div>
+        <span class="font-bold block mb-0.5">${isHighFixed ? 'Realistic Constraint Detected (50/30/20 Rule Adapted)' : 'Standard Benchmark Compatible'}</span>
+        <p class="text-slate-300 leading-relaxed">${plan.rule_acknowledgment}</p>
+      </div>
+    </div>
+
+    <!-- 3-Column Allocation Cards -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
+      <!-- Fixed Needs -->
+      <div class="p-3.5 rounded-xl bg-slate-900/70 border border-slate-800">
+        <div class="flex justify-between items-center text-slate-400 mb-1">
+          <span>Fixed Essentials</span>
+          <span class="text-white font-bold">${alloc.fixed_needs.percent}%</span>
+        </div>
+        <div class="text-lg font-bold text-white mb-1">$${alloc.fixed_needs.amount.toLocaleString()}</div>
+        <span class="text-[11px] text-slate-400">Housing, bills, groceries, debt minimums</span>
+        <div class="w-full bg-slate-800 rounded-full h-1.5 mt-2">
+          <div class="bg-blue-500 h-1.5 rounded-full" style="width: ${Math.min(100, alloc.fixed_needs.percent)}%"></div>
+        </div>
+      </div>
+
+      <!-- Tailored Savings & Buffer -->
+      <div class="p-3.5 rounded-xl bg-slate-900/70 border border-slate-800">
+        <div class="flex justify-between items-center text-slate-400 mb-1">
+          <span>Savings & Buffer</span>
+          <span class="text-emerald-400 font-bold">${alloc.savings_debt.percent}% of total (${alloc.savings_debt.pct_of_remaining}% of remainder)</span>
+        </div>
+        <div class="text-lg font-bold text-emerald-400 mb-1">$${alloc.savings_debt.amount.toLocaleString()} <span class="text-xs font-normal text-slate-400">/ mo</span></div>
+        <span class="text-[11px] text-slate-400">Emergency fund & high-interest debt payoff</span>
+        <div class="w-full bg-slate-800 rounded-full h-1.5 mt-2">
+          <div class="bg-emerald-500 h-1.5 rounded-full" style="width: ${Math.min(100, alloc.savings_debt.percent * 2)}%"></div>
+        </div>
+      </div>
+
+      <!-- Tailored Discretionary Wants -->
+      <div class="p-3.5 rounded-xl bg-slate-900/70 border border-slate-800">
+        <div class="flex justify-between items-center text-slate-400 mb-1">
+          <span>Flexible Living & Wants</span>
+          <span class="text-amber-400 font-bold">${alloc.discretionary_wants.percent}% of total (${alloc.discretionary_wants.pct_of_remaining}% of remainder)</span>
+        </div>
+        <div class="text-lg font-bold text-amber-400 mb-1">$${alloc.discretionary_wants.amount.toLocaleString()} <span class="text-xs font-normal text-slate-400">/ mo</span></div>
+        <span class="text-[11px] text-slate-400">~$${Math.round(alloc.discretionary_wants.amount / 4.33).toLocaleString()}/week for dining, leisure & shopping</span>
+        <div class="w-full bg-slate-800 rounded-full h-1.5 mt-2">
+          <div class="bg-amber-500 h-1.5 rounded-full" style="width: ${Math.min(100, alloc.discretionary_wants.percent * 2)}%"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Action Steps Blueprint -->
+    <div class="p-3.5 rounded-xl bg-slate-950/60 border border-slate-800 text-xs">
+      <span class="font-semibold text-white block mb-2 flex items-center gap-1.5">
+        <i data-lucide="list-checks" class="w-4 h-4 text-blue-400"></i>
+        <span>Concrete 3-Step Action Blueprint</span>
+      </span>
+      <div class="space-y-1.5 text-slate-300">
+        ${plan.action_steps.map((st, idx) => `
+          <div class="flex items-start gap-2">
+            <span class="w-4 h-4 rounded-full bg-blue-500/20 text-blue-400 flex items-center justify-center font-bold text-[10px] shrink-0 mt-0.5">${idx+1}</span>
+            <span>${st}</span>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+  `;
+
+  if (window.lucide) {
+    lucide.createIcons();
+  }
+}
+
+function simulateTailoredBudgetInAdvisor() {
+  const incEl = document.getElementById("custom-calc-income");
+  const fixEl = document.getElementById("custom-calc-fixed");
+  const inc = incEl ? incEl.value : "30000";
+  const fix = fixEl ? fixEl.value : "20000";
+  switchTab('chat');
+  sendQuickPrompt(`My fixed costs take up $${Number(fix).toLocaleString()} out of $${Number(inc).toLocaleString()} income (${Math.round((fix/inc)*100)}%). Build a tailored financial plan for my remaining amount.`);
 }

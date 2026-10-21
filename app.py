@@ -11,7 +11,7 @@ from pydantic import BaseModel, Field
 from typing import List, Dict, Any, Optional
 import os
 
-from core.budgeting import analyze_transactions
+from core.budgeting import analyze_transactions, build_tailored_budget_plan
 from core.forecasting import run_monte_carlo_simulation, calculate_fire_metrics
 from core.debt_planner import compare_debt_strategies
 from core.report_generator import generate_client_report
@@ -58,6 +58,10 @@ class DebtPayoffRequest(BaseModel):
 class SpendingAnalysisRequest(BaseModel):
     transactions: List[Dict[str, Any]]
     monthly_income: float
+
+class TailoredBudgetRequest(BaseModel):
+    monthly_income: float = 30000.0
+    fixed_costs: float = 20000.0
 
 # In-memory store for client mutations (resets on restart)
 clients_db = {k: dict(v) for k, v in CLIENT_PROFILES.items()}
@@ -131,6 +135,11 @@ def analyze_spending(req: SpendingAnalysisRequest):
     """Runs categorization, subscription detection, and 50/30/20 analysis."""
     res = analyze_transactions(req.transactions, req.monthly_income)
     return res
+
+@app.post("/api/tailored-budget")
+def get_tailored_budget(req: TailoredBudgetRequest):
+    """Calculates adaptive financial plan for custom income & fixed costs."""
+    return build_tailored_budget_plan(req.monthly_income, req.fixed_costs)
 
 @app.get("/api/report/{client_id}")
 def get_report(client_id: str):

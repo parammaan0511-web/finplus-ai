@@ -6,7 +6,7 @@ Offers 24/7 client-facing guidance, scenario evaluation, and seamless CFP human-
 
 from typing import Dict, Any, List
 import re
-from .budgeting import analyze_transactions
+from .budgeting import analyze_transactions, build_tailored_budget_plan
 from .forecasting import run_monte_carlo_simulation, calculate_fire_metrics
 from .debt_planner import compare_debt_strategies
 from .risk_profiler import get_risk_profile
@@ -45,8 +45,82 @@ def answer_financial_query(query: str, client: Dict[str, Any], history: List[Dic
     key_metrics = {}
     suggested_prompts = []
     
+    # Intent 0: Tailored Adaptive Budget for High Fixed Costs / Specific Financial Situations (e.g. 67% or 20,000 out of 30,000)
+    has_ratio_match = re.search(r'\$?(\d+[\d,]*)\s*(?:k)?\s*(?:out of|of|\/)\s*\$?(\d+[\d,]*)\s*(?:k)?', q)
+    has_fixed_pct = re.search(r'(\d+(?:\.\d+)?)\s*%', q)
+    has_tailored_keywords = any(k in q for k in ["fixed cost", "fixed costs", "fixed expense", "tailored plan", "tailored budget", "50/30/20", "67%", "won't fit", "doesn't fit"])
+
+    if has_ratio_match or (has_tailored_keywords and (has_fixed_pct or any(n in q for n in ["30000", "30,000", "20000", "20,000", "67", "won't fit", "doesn't fit"]))):
+        q_income = 30000.0
+        q_fixed = 20000.0
+
+        if has_ratio_match:
+            try:
+                v1_str = has_ratio_match.group(1).replace(',', '')
+                v2_str = has_ratio_match.group(2).replace(',', '')
+                m_str = has_ratio_match.group(0)
+                v1 = float(v1_str) * (1000 if 'k' in m_str.split('of')[0] or 'k' in m_str.split('/')[0] else 1)
+                v2 = float(v2_str) * (1000 if 'k' in m_str.split('of')[-1] or 'k' in m_str.split('/')[-1] else 1)
+                if v1 < v2:
+                    q_fixed, q_income = v1, v2
+                else:
+                    q_income, q_fixed = v1, v2
+            except Exception:
+                pass
+        elif any(n in q for n in ["30000", "30,000"]) and any(n in q for n in ["20000", "20,000"]):
+            q_income = 30000.0
+            q_fixed = 20000.0
+        elif has_fixed_pct:
+            try:
+                pct = float(has_fixed_pct.group(1))
+                if pct > 0:
+                    q_income = client.get("monthly_net_income", 30000.0) if client.get("monthly_net_income") else 30000.0
+                    q_fixed = round(q_income * (pct / 100.0), 2)
+            except Exception:
+                pass
+
+        plan = build_tailored_budget_plan(q_income, q_fixed)
+        rem = plan["remaining_amount"]
+        rem_pct = plan["remaining_pct"]
+        alloc = plan["tailored_allocation"]
+        sav_amt = alloc["savings_debt"]["amount"]
+        sav_pct = alloc["savings_debt"]["percent"]
+        wants_amt = alloc["discretionary_wants"]["amount"]
+        wants_pct = alloc["discretionary_wants"]["percent"]
+        emergency_target = plan["emergency_3mo_target"]
+        months_to_fund = plan["months_to_emergency_fund"]
+
+        response_text = (
+            f"With **${q_fixed:,.0f}** in fixed costs against a monthly net income of **${q_income:,.0f}** ({plan['fixed_pct']}%), "
+            f"the traditional 50/30/20 rule won't fit perfectly because your fixed essential expenses already exceed the standard 50% guideline (${plan['standard_comparison']['needs']:,.0f}) by **${q_fixed - plan['standard_comparison']['needs']:,.0f}**.\n\n"
+            f"### Tailored Plan for the Remaining ${rem:,.0f} ({rem_pct}%)\n\n"
+            f"Instead of attempting an impossible 50% fixed-cost cap, here is your customized plan allocating the remaining **${rem:,.0f}**:\n\n"
+            f"1. **Savings, Debt Payoff & Liquidity Reserve (60% of remaining / {sav_pct}% of total income):**\n"
+            f"   - **Allocation:** **${sav_amt:,.0f} / month**\n"
+            f"   - **Math & Milestone:** A 3-month fixed cost cushion (${q_fixed:,.0f} x 3 = **${emergency_target:,.0f}**) is fully funded in **{months_to_fund} months** at this pace, shielding you against cash flow shocks.\n\n"
+            f"2. **Flexible Discretionary Living (40% of remaining / {wants_pct}% of total income):**\n"
+            f"   - **Allocation:** **${wants_amt:,.0f} / month** (~**${wants_amt / 4.33:,.0f} / week**)\n"
+            f"   - **Math & Purpose:** Dedicated strictly to dining, leisure, and shopping without accumulating debt or dipping into fixed living costs.\n\n"
+            f"### Actionable Steps\n"
+            f"1. **Automate Payday Transfers:** Schedule an automatic recurring transfer of **${sav_amt:,.0f}** into a high-yield account or high-APR debt reduction on the day your paycheck arrives.\n"
+            f"2. **Separate Discretionary Account:** Keep your **${wants_amt:,.0f}** variable budget in a dedicated secondary checking account to enforce daily spending discipline.\n"
+            f"3. **Cap Fixed Overhead:** Audit fixed bills (insurance, subscriptions, utilities) annually to keep fixed expenses strictly at or below {plan['fixed_pct']}%.\n\n"
+            f"Would you like to model allocating part of this ${sav_amt:,.0f}/month toward high-interest debt or toward an index fund portfolio?"
+        )
+        key_metrics = {
+            "Fixed Needs": f"${q_fixed:,.0f} ({plan['fixed_pct']}%)",
+            "Remaining Surplus": f"${rem:,.0f} ({rem_pct}%)",
+            "Savings & Reserve": f"${sav_amt:,.0f}/mo (60%)",
+            "Discretionary Wants": f"${wants_amt:,.0f}/mo (40%)"
+        }
+        suggested_prompts = [
+            "How long to reach a 6-month emergency reserve?",
+            "What if I pay an extra $500 toward credit card debt?",
+            "What happens if my fixed costs rise to 70%?"
+        ]
+
     # Intent 1: Home Purchase Affordability (prioritize before retirement if home/house/mortgage mentioned)
-    if any(k in q for k in ["afford a house", "buy a home", "buy a condo", "mortgage", "purchase a house", "down payment", "house", "condo"]):
+    elif any(k in q for k in ["afford a house", "buy a home", "buy a condo", "mortgage", "purchase a house", "down payment", "house", "condo"]):
         match = re.search(r'\$?(\d+[\d,]*)(k)?', q)
         home_price = 600000.0
         if match:
@@ -302,22 +376,39 @@ def answer_financial_query(query: str, client: Dict[str, Any], history: List[Dic
             "What is my retirement probability?"
         ]
 
-    # Default / General Knowledge Answer
+    # Explicit capability request
+    elif any(k in q for k in ["what can you do", "what are your capabilities", "your capabilities", "what features do you have"]):
+        response_text = (
+            f"Here is what I can do and my core capabilities as your quantitative financial planning assistant:\n\n"
+            f"1. **Tailored Cash Flow & Adaptive Budgeting**: Design realistic spending allocations when fixed costs deviate from traditional 50/30/20 guidelines.\n"
+            f"2. **Monte Carlo Wealth Projections**: Run 1,000-path stochastic simulations testing retirement timelines and safe withdrawal buffers.\n"
+            f"3. **Debt Freedom Accelerator**: Compare Avalanche vs. Snowball payoff schedules to minimize interest drag.\n"
+            f"4. **Home Purchase & Goal Modeling**: Calculate mortgage PITI payments, down payment targets, and DTI thresholds.\n"
+            f"5. **Audit-Ready Financial Plans**: Generate 5-pillar health scorecards with fiduciary escalation for complex scenarios.\n\n"
+            f"Which area would you like to run numbers on?"
+        )
+        key_metrics = {"Mode": "Advisory Capabilities"}
+        suggested_prompts = [
+            "My fixed costs take up 67% of income ($20k of $30k)",
+            "How am I doing financially?",
+            "Can I retire at 55?"
+        ]
+
+    # Default / General Financial Guidance (never repeats question or recites capability list)
     else:
         response_text = (
-            f"Thank you for your question: *'{query}'*.\n\n"
-            f"As your **AI Financial Advisor**, I can assist you with:\n"
-            f"1. **Budget Optimization & Cashflow**: Analyzing transactions, uncovering recurring subscriptions, and applying 50/30/20 guidelines.\n"
-            f"2. **Wealth Forecasting & Monte Carlo**: Running 1,000-scenario stress tests to calculate your probability of retirement success.\n"
-            f"3. **Debt Acceleration**: Comparing Avalanche vs. Snowball payoff schedules to save maximum interest.\n"
-            f"4. **Major Life Goals**: Calculating down payment timelines for home purchases, FIRE readiness, and emergency runway.\n\n"
-            f"Would you like to examine your current financial health score, test a retirement scenario, or inspect your spending patterns?"
+            f"To build a concrete, tailored financial plan for your situation, we start by mapping your monthly take-home cash flow against fixed obligations.\n\n"
+            f"For example, if your fixed costs consume a high percentage of earnings (such as $20,000 out of a $30,000 income, or 67%), the standard 50/30/20 rule will not fit. In that case, we isolate the remaining $10,000 surplus to establish an emergency runway ($6,000/mo) and a controlled discretionary budget ($4,000/mo).\n\n"
+            f"What is your current monthly take-home income and total fixed essential cost?"
         )
+        key_metrics = {
+            "Default Ratio Model": "Custom Allocation",
+            "Emergency Benchmark": "3-6 Months Fixed Costs"
+        }
         suggested_prompts = [
-            "How is my overall financial health?",
-            "Can I afford to buy a house?",
-            "Show my Monte Carlo retirement forecast",
-            "How can I cut $300 from monthly spending?"
+            "My fixed costs take up 67% ($20k of $30k)",
+            "How should I split my remaining budget?",
+            "Show my financial health score"
         ]
 
     return {

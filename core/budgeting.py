@@ -160,3 +160,81 @@ def analyze_transactions(transactions: List[Dict[str, Any]], monthly_income: flo
         "insights": insights,
         "transactions": categorized_txs
     }
+
+
+def build_tailored_budget_plan(monthly_income: float, fixed_costs: float) -> Dict[str, Any]:
+    """
+    Builds a realistic, tailored financial budget plan.
+    Explicitly accounts for realistic constraints: if fixed essential costs exceed 50%
+    (e.g., 67% or 20,000 out of 30,000), it acknowledges that the rigid 50/30/20 rule
+    cannot fit and formulates an actionable plan for the remaining surplus.
+    """
+    if monthly_income <= 0:
+        return {"error": "Monthly net income must be greater than zero."}
+
+    fixed_costs = max(0.0, float(fixed_costs))
+    fixed_pct = round((fixed_costs / monthly_income) * 100, 1)
+    remaining_amount = max(0.0, round(monthly_income - fixed_costs, 2))
+    remaining_pct = round(100.0 - fixed_pct, 1) if fixed_pct <= 100 else 0.0
+
+    standard_needs = round(monthly_income * 0.50, 2)
+    standard_wants = round(monthly_income * 0.30, 2)
+    standard_savings = round(monthly_income * 0.20, 2)
+
+    fits_standard_50_30_20 = fixed_pct <= 50.0
+
+    if not fits_standard_50_30_20:
+        # Realistic allocation for the remaining funds
+        # When fixed costs take ~67% (like 20k out of 30k), 10k is left.
+        # Allocate 60% of remainder to savings/debt buffer ($6,000 / 20% of income)
+        # Allocate 40% of remainder to flexible living/wants ($4,000 / 13.3% of income)
+        target_savings_amt = round(remaining_amount * 0.60, 2)
+        target_wants_amt = round(remaining_amount - target_savings_amt, 2)
+
+        tailored_savings_pct = round((target_savings_amt / monthly_income) * 100, 1)
+        tailored_wants_pct = round((target_wants_amt / monthly_income) * 100, 1)
+
+        rule_acknowledgment = (
+            f"Fixed costs take up {fixed_pct}% of your income (${fixed_costs:,.2f} out of ${monthly_income:,.2f}). "
+            f"The standard 50/30/20 rule will not fit because your essentials exceed the 50% threshold (${standard_needs:,.2f}) by ${fixed_costs - standard_needs:,.2f}."
+        )
+    else:
+        target_savings_amt = standard_savings
+        target_wants_amt = round(remaining_amount - target_savings_amt, 2)
+        tailored_savings_pct = 20.0
+        tailored_wants_pct = round((target_wants_amt / monthly_income) * 100, 1)
+        rule_acknowledgment = (
+            f"Your fixed costs are {fixed_pct}% (${fixed_costs:,.2f}), which fits within the standard 50% ceiling (${standard_needs:,.2f})."
+        )
+
+    emergency_3mo_target = round(fixed_costs * 3, 2)
+    months_to_emergency_fund = round(emergency_3mo_target / target_savings_amt, 1) if target_savings_amt > 0 else 0
+
+    action_steps = [
+        f"Automate ${target_savings_amt:,.2f}/month (60% of remaining funds / {tailored_savings_pct}% of income) into high-yield savings or debt reduction on payday.",
+        f"Cap discretionary living expenses to ${target_wants_amt:,.2f}/month (approx. ${round(target_wants_amt / 4.33, 2):,.2f}/week) using a dedicated secondary account.",
+        f"Build a 3-month fixed cost reserve (${emergency_3mo_target:,.2f}), fully achieved in {months_to_emergency_fund} months at this savings pace."
+    ]
+
+    return {
+        "monthly_income": monthly_income,
+        "fixed_costs": fixed_costs,
+        "fixed_pct": fixed_pct,
+        "remaining_amount": remaining_amount,
+        "remaining_pct": remaining_pct,
+        "fits_standard_50_30_20": fits_standard_50_30_20,
+        "rule_acknowledgment": rule_acknowledgment,
+        "standard_comparison": {
+            "needs": standard_needs,
+            "wants": standard_wants,
+            "savings": standard_savings
+        },
+        "tailored_allocation": {
+            "fixed_needs": {"amount": fixed_costs, "percent": fixed_pct},
+            "savings_debt": {"amount": target_savings_amt, "percent": tailored_savings_pct, "pct_of_remaining": 60.0 if remaining_amount > 0 else 0.0},
+            "discretionary_wants": {"amount": target_wants_amt, "percent": tailored_wants_pct, "pct_of_remaining": 40.0 if remaining_amount > 0 else 0.0}
+        },
+        "action_steps": action_steps,
+        "emergency_3mo_target": emergency_3mo_target,
+        "months_to_emergency_fund": months_to_emergency_fund
+    }
